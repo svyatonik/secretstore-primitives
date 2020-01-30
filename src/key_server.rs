@@ -14,48 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Ethereum.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
+use ethereum_types::H256;
+use parity_crypto::publickey::{Public, Signature};
 use crate::{
+	KeyServerId, KeyServerPublic, ServerKeyId,
 	error::Error,
-	ServerKey, ServerKeyId, MessageHash, EncryptedMessageSignature, RequestSignature, requester::Requester,
-	EncryptedDocumentKey, NodeId, CommonPoint, EncryptedPoint,
+	requester::Requester,
 };
 
 /// Server key generation artifacts.
 pub struct ServerKeyGenerationArtifacts {
-	/// Retrieved server key.
-	pub key: ServerKey,
+	/// Public portion of generated server key.
+	pub key: Public,
 }
 
 /// Server key retrieval artifacts.
 pub struct ServerKeyRetrievalArtifacts {
-	/// Retrieved server key.
-	pub key: ServerKey,
-	/// Retrieved server key threshold.
+	/// Public portion of retrieved server key.
+	pub key: Public,
+	/// Threshold that has been used to generate server key.
 	pub threshold: usize,
-}
-
-/// Document key common retrieval artifacts.
-pub struct DocumentKeyCommonRetrievalArtifacts {
-	///
-	pub common_point: CommonPoint,
-	///
-	pub threshold: usize,
-}
-
-/// Document key shadow retrieval artifacts.
-pub struct DocumentKeyShadowRetrievalArtifacts {
-	///
-	pub participants: Vec<parity_crypto::publickey::Address>,
-	/// Decrypted secret point. It is partially decrypted if shadow decryption was requested.
-	pub decrypted_secret: parity_crypto::publickey::Public,
-	/// Shared common point.
-	pub common_point: Option<parity_crypto::publickey::Public>,
-	///
-	pub shadow: Vec<u8>,
-	/// If shadow decryption was requested: shadow decryption coefficients, encrypted with requestor public.
-	pub decrypt_shadows: Option<Vec<Vec<u8>>>,
 }
 
 /// Server key (SK) generator.
@@ -87,14 +67,56 @@ pub trait ServerKeyGenerator {
 	) -> Self::RestoreKeyFuture;
 }
 
+/// Dcument key generation artifacts.
+pub struct DocumentKeyGenerationArtifacts {
+	/// Generated document key. UNENCRYPTED.
+	pub document_key: Public,
+}
+
+/// Document key retrieval artifacts.
+pub struct DocumentKeyRetrievalArtifacts {
+	/// Restored document key. UNENCRYPTED.
+	pub document_key: Public,
+}
+
+/// Document key common retrieval artifacts.
+///
+/// This data isn't enough to recover document key and could only be used for
+/// establishing consensus over `common_point` and `threshold`.
+pub struct DocumentKeyCommonRetrievalArtifacts {
+	/// The common point of portion of encrypted document keys. Common point is
+	/// shared among all key servers that aware of the given document key.
+	pub common_point: Public,
+	/// Threshold that has been used to generate associated server key.
+	pub threshold: usize,
+}
+
+/// Document key shadow retrieval artifacts.
+///
+/// The data is enough to decrypt document key by the owner of corresponding
+/// requester key.
+pub struct DocumentKeyShadowRetrievalArtifacts {
+	/// The common point of portion of encrypted document keys. Common point is
+	/// shared among all key servers that aware of the given document key.
+	pub common_point: Public,
+	/// Threshold that has been used to generate associated server key.
+	pub threshold: usize,
+	/// Partially decrypted document key.
+	pub encrypted_document_key: Public,
+	/// Key servers that has participated in decryption session along with their
+	/// shadow coefficients. Shadow coefficients are encrypted with requester public
+	/// key. After decryption, they can be used to finally decrypt document key.
+	pub participants_coefficients: BTreeMap<KeyServerId, Vec<u8>>,
+}
+
 /// Document key (DK) server.
 pub trait DocumentKeyServer: ServerKeyGenerator {
 	/// DK store future.
 	type StoreDocumentKeyFuture: Future<Output = Result<(), Error>> + Send;
 	/// DK generation future.
-	type GenerateDocumentKeyFuture: Future<Output = Result<EncryptedDocumentKey, Error>> + Send;
+	type GenerateDocumentKeyFuture: Future<Output = Result<DocumentKeyGenerationArtifacts, Error>> + Send;
 	/// DK restore future.
-	type RestoreDocumentKeyFuture: Future<Output = Result<EncryptedDocumentKey, Error>> + Send;
+	type RestoreDocumentKeyFuture: Future<Output = Result<DocumentKeyRetrievalArtifacts, Error>> + Send;
 	/// DK common part restore future.
 	type RestoreDocumentKeyCommonFuture: Future<Output = Result<DocumentKeyCommonRetrievalArtifacts, Error>> + Send;
 	/// DK shadow restore future.
@@ -103,15 +125,16 @@ pub trait DocumentKeyServer: ServerKeyGenerator {
 	/// Store externally generated DK.
 	/// `key_id` is identifier of previously generated SK.
 	/// `author` is the same author, that has created the server key.
-	/// `common_point` is a result of `k * T` expression, where `T` is generation point and `k` is random scalar in EC field.
+	/// `common_point` is a result of `k * T` expression, where `T` is generation point
+	/// and `k` is random scalar in EC field.
 	/// `encrypted_document_key` is a result of `M + k * y` expression, where `M` is unencrypted document key (point on EC),
 	///   `k` is the same scalar used in `common_point` calculation and `y` is previously generated public part of SK.
 	fn store_document_key(
 		&self,
 		key_id: ServerKeyId,
 		author: Requester,
-		common_point: CommonPoint,
-		encrypted_document_key: EncryptedPoint,
+		common_point: Public,
+		encrypted_document_key: Public,
 	) -> Self::StoreDocumentKeyFuture;
 	/// Generate and store both SK and DK. This is a shortcut for consequent calls of `generate_key` and `store_document_key`.
 	/// The only difference is that DK is generated by DocumentKeyServer (which might be considered unsafe).
@@ -155,12 +178,26 @@ pub trait DocumentKeyServer: ServerKeyGenerator {
 	) -> Self::RestoreDocumentKeyShadowFuture;
 }
 
+/// Schnorr signing artifacts.
+pub struct SchnorrSigningArtifacts {
+	/// C portion of Schnorr signature.
+	pub signature_c: H256,
+	/// S portion of Schnorr signature.
+	pub signature_s: H256,
+}
+
+/// ECDSA signing artifacts.
+pub struct EcdsaSigningArtifacts {
+	/// ECDSA signature.
+	pub signature: Signature,
+}
+
 /// Message signer.
 pub trait MessageSigner: ServerKeyGenerator {
 	/// Schnorr signing future.
-	type SignMessageSchnorrFuture: Future<Output = Result<EncryptedMessageSignature, Error>> + Send;
+	type SignMessageSchnorrFuture: Future<Output = Result<SchnorrSigningArtifacts, Error>> + Send;
 	/// ECDSA signing future.
-	type SignMessageECDSAFuture: Future<Output = Result<EncryptedMessageSignature, Error>> + Send;
+	type SignMessageECDSAFuture: Future<Output = Result<EcdsaSigningArtifacts, Error>> + Send;
 
 	/// Generate Schnorr signature for message with previously generated SK.
 	/// `key_id` is the caller-provided identifier of generated SK.
@@ -171,19 +208,19 @@ pub trait MessageSigner: ServerKeyGenerator {
 		&self,
 		key_id: ServerKeyId,
 		requester: Requester,
-		message: MessageHash,
+		message: H256,
 	) -> Self::SignMessageSchnorrFuture;
 	/// Generate ECDSA signature for message with previously generated SK.
 	/// WARNING: only possible when SK was generated using t <= 2 * N.
 	/// `key_id` is the caller-provided identifier of generated SK.
 	/// `signature` is `key_id`, signed with caller public key.
-	/// `message` is the message to be signed.
+	/// `message` is the hash of message to be signed.
 	/// Result is a signed message, encrypted with caller public key.
 	fn sign_message_ecdsa(
 		&self,
 		key_id: ServerKeyId,
 		signature: Requester,
-		message: MessageHash,
+		message: H256,
 	) -> Self::SignMessageECDSAFuture;
 }
 
@@ -198,9 +235,9 @@ pub trait AdminSessionsServer {
 	/// must be followed with cluster nodes change (either via contract, or config files).
 	fn change_servers_set(
 		&self,
-		old_set_signature: RequestSignature,
-		new_set_signature: RequestSignature,
-		new_servers_set: BTreeSet<NodeId>,
+		old_set_signature: Signature,
+		new_set_signature: Signature,
+		new_servers_set: BTreeSet<KeyServerPublic>,
 	) -> Self::ChangeServersSetFuture;
 }
 

@@ -1,11 +1,27 @@
-use parity_crypto::publickey::{Address, Public, public_to_address, recover};
-use crate::{RequestSignature, ServerKeyId};
+// Copyright 2015-2020 Parity Technologies (UK) Ltd.
+// This file is part of Parity Secret Store.
+
+// Parity Secret Store is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Parity Secret Store is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Parity Secret Store.  If not, see <http://www.gnu.org/licenses/>.
+
+use parity_crypto::publickey::{Address, Public, Signature, public_to_address, recover};
+use crate::{error::Error, ServerKeyId};
 
 /// Requester identification data.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Requester {
 	/// Requested with server key id signature.
-	Signature(RequestSignature),
+	Signature(Signature),
 	/// Requested with public key.
 	Public(Public),
 	/// Requested with verified address.
@@ -13,23 +29,25 @@ pub enum Requester {
 }
 
 impl Requester {
-	pub fn public(&self, server_key_id: &ServerKeyId) -> Result<Public, String> {
+	/// Return requester public key.
+	pub fn public(&self, server_key_id: &ServerKeyId) -> Result<Public, Error> {
 		match *self {
 			Requester::Signature(ref signature) => recover(signature, server_key_id)
-				.map_err(|e| format!("bad signature: {}", e)),
+				.map_err(|e| Error::Internal(format!("bad signature: {}", e))),
 			Requester::Public(ref public) => Ok(public.clone()),
-			Requester::Address(_) => Err("cannot recover public from address".into()),
+			Requester::Address(_) => Err(Error::Internal("cannot recover public from address".into())),
 		}
 	}
 
-	pub fn address(&self, server_key_id: &ServerKeyId) -> Result<Address, String> {
+	/// Return requester address.
+	pub fn address(&self, server_key_id: &ServerKeyId) -> Result<Address, Error> {
 		self.public(server_key_id)
 			.map(|p| public_to_address(&p))
 	}
 }
 
-impl From<RequestSignature> for Requester {
-	fn from(signature: RequestSignature) -> Requester {
+impl From<Signature> for Requester {
+	fn from(signature: Signature) -> Requester {
 		Requester::Signature(signature)
 	}
 }

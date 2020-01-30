@@ -17,18 +17,18 @@
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use ethereum_types::H256;
-use crate::NodeId;
+use crate::KeyServerPublic;
 
-///
+/// Every migration process has its own unique id.
 pub type MigrationId = H256;
 
 /// Key Server Set state.
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct KeyServerSetSnapshot {
 	/// Current set of key servers.
-	pub current_set: BTreeMap<NodeId, SocketAddr>,
+	pub current_set: BTreeMap<KeyServerPublic, SocketAddr>,
 	/// New set of key servers.
-	pub new_set: BTreeMap<NodeId, SocketAddr>,
+	pub new_set: BTreeMap<KeyServerPublic, SocketAddr>,
 	/// Current migration data.
 	pub migration: Option<KeyServerSetMigration>,
 }
@@ -39,9 +39,9 @@ pub struct KeyServerSetMigration {
 	/// Migration id.
 	pub id: MigrationId,
 	/// Migration set of key servers. It is the new_set at the moment of migration start.
-	pub set: BTreeMap<NodeId, SocketAddr>,
+	pub set: BTreeMap<KeyServerPublic, SocketAddr>,
 	/// Master node of the migration process.
-	pub master: NodeId,
+	pub master: KeyServerPublic,
 	/// Is migration confirmed by this node?
 	pub is_confirmed: bool,
 }

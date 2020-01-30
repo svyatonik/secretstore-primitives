@@ -14,6 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Secret Store.  If not, see <http://www.gnu.org/licenses/>.
 
+// to avoid extra dependencies if you're using primitives
+pub use ethereum_types::H256;
+pub use parity_bytes::Bytes;
+pub use parity_crypto::publickey::{Address, Public, Signature};
+
+/// Every key server owns a key. This type is used where we need to encrypt
+/// message to this server key.
+pub type KeyServerPublic = Public;
+/// Key server address is derived from its own public key. This type is used
+/// when we need to identify server key.
+pub type KeyServerId = Address;
+
+/// Every server key has its own id. This could be a hash of some document
+/// that should be encrypted by this key.
+pub type ServerKeyId = H256;
+
 pub mod acl_storage;
 pub mod error;
 pub mod key_server;
@@ -22,59 +38,13 @@ pub mod requester;
 pub mod serialization;
 pub mod service;
 
-/// Node id.
-pub type NodeId = parity_crypto::publickey::Public;
-///
-
-pub type KeyServerId = NodeId;
-///
-pub type RequesterId = ethereum_types::Address;
-/// Server key id. When key is used to encrypt document, it could be document contents hash.
-pub type ServerKeyId = ethereum_types::H256;
-
-
-///
-pub type CommonPoint = parity_crypto::publickey::Public;
-///
-pub type EncryptedPoint = parity_crypto::publickey::Public;
-
-pub type ServerKey = parity_crypto::publickey::Public;
-
-pub type DecryptedSecret = parity_crypto::publickey::Public;
-
-pub type DocumentKeyShadow = Vec<u8>;
-
-pub type EncryptedDocumentKey = Vec<u8>;
-
-pub struct DocumentKeyCommon {
-	pub threshold: usize,
-	pub common_point: CommonPoint,
+/// Encrypt given data using Elliptic Curve Integrated Encryption Scheme.
+pub fn ecies_encrypt(
+	public: &Public,
+	data: &[u8],
+) -> Result<Bytes, crate::error::Error> {
+	parity_crypto::publickey::ecies::encrypt(public, &parity_crypto::DEFAULT_MAC, data)
+		.map_err(|error| crate::error::Error::Internal(
+			format!("Error encrypting data (ECIES): {}", error),
+		))
 }
-
-///
-pub type MessageHash = ethereum_types::H256;
-
-pub type RequestSignature = parity_crypto::publickey::Signature;
-
-pub type EncryptedMessageSignature = Vec<u8>;
-
-/// Shadow decryption result.
-#[derive(Clone, Debug, PartialEq)]
-pub struct EncryptedDocumentKeyShadow {
-	/// Decrypted secret point. It is partially decrypted if shadow decryption was requested.
-	pub decrypted_secret: parity_crypto::publickey::Public,
-	/// Shared common point.
-	pub common_point: Option<parity_crypto::publickey::Public>,
-	/// If shadow decryption was requested: shadow decryption coefficients, encrypted with requestor public.
-	pub decrypt_shadows: Option<Vec<Vec<u8>>>,
-}
-/*
-/// Link
-pub trait KeyServerLink: Send + Sync {
-	/// Spawn auxiliary background task.
-	fn spawn_task(&self, Box<Future<Output = ()> + Send + Sync>);
-	/// Send service task.
-	fn send_service_task(&self, task: ServiceTask) -> Box<Future<Output = Result<ServiceResponse, Error>> + Send + Sync>;
-}
-
-*/

@@ -14,10 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Secret Store.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{error::Error, RequesterId, ServerKeyId};
+use ethereum_types::Address;
+use crate::{ServerKeyId, error::Error};
 
-/// ACL storage of Secret Store
+/// ACL storage of Secret Store.
 pub trait AclStorage: Send + Sync {
-	/// Check if requester can access document with hash `document`
-	fn check(&self, requester: RequesterId, document: &ServerKeyId) -> Result<bool, Error>;
+	/// Check if ownere of `requester_address` can run any operations that are
+	/// touching private data associated with given server key.
+	///
+	/// The private data is either private portion of server key, or document
+	/// key associated with this server key.
+	fn check(&self, requester_address: Address, key_id: &ServerKeyId) -> Result<bool, Error>;
 }
