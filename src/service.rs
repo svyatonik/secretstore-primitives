@@ -14,10 +14,43 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Secret Store.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::Arc};
 use ethereum_types::H256;
 use parity_crypto::publickey::{Public, Signature};
-use crate::{requester::Requester, ServerKeyId, KeyServerPublic};
+use crate::{
+	ServerKeyId, KeyServerPublic,
+	key_server::{
+		SessionResult, ServerKeyGenerationArtifacts, ServerKeyRetrievalArtifacts,
+		DocumentKeyStoreArtifacts, DocumentKeyCommonRetrievalArtifacts,
+		DocumentKeyShadowRetrievalArtifacts,
+	},
+	requester::Requester,
+};
+
+/// Service tasks listener registrar.
+pub trait ServiceTasksListenerRegistrar: Send + Sync {
+	/// Register service tasks listener.
+	fn register_listener(&self, listener: Arc<dyn ServiceTasksListener>);
+}
+
+/// Service tasks listener.
+///
+/// Service could subscribe to some key server events, so that it will
+/// receive notifications about all sessions that are completed on this
+/// node (even if they were started by another node).
+pub trait ServiceTasksListener: Send + Sync {
+	/// Called when server key generation session is completed.
+	fn server_key_generated(&self, _: &SessionResult<ServerKeyGenerationArtifacts>) {}
+	/// Called when server key retrieval session is completed.
+	fn server_key_retrieved(&self, _: &SessionResult<ServerKeyRetrievalArtifacts>) {}
+
+	/// Called when document key store (aka encryption) session is completed.
+	fn document_key_stored(&self, _: &SessionResult<DocumentKeyStoreArtifacts>) {}
+	/// Called when common part of document key is retrieved.
+	fn document_key_common_retrieved(&self, _: &SessionResult<DocumentKeyCommonRetrievalArtifacts>) {}
+	/// Called when personal part of document key is retrieved.
+	fn document_key_shadow_retrieved(&self, _: &SessionResult<DocumentKeyShadowRetrievalArtifacts>) {}
+}
 
 /// Service contract task.
 #[derive(Debug, Clone, PartialEq)]
@@ -40,7 +73,7 @@ pub enum ServiceTask {
 
 	/// Retrieve document key (server_key_id, requester).
 	RetrieveDocumentKey(ServerKeyId, Requester),
-	/// Retrieve document key (server_key_id, requester).
+	/// Retrieve document key shadow (server_key_id, requester).
 	RetrieveShadowDocumentKey(ServerKeyId, Requester),
 
 	// === Signing tasks ===

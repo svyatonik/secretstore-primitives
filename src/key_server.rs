@@ -16,13 +16,24 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
-use ethereum_types::H256;
+use ethereum_types::{H160, H256};
 use parity_crypto::publickey::{Public, Signature};
 use crate::{
 	KeyServerId, KeyServerPublic, ServerKeyId,
 	error::Error,
 	requester::Requester,
 };
+
+/// Session origin.
+pub type Origin = H160;
+
+/// Session result.
+pub struct SessionResult<T> {
+	/// Session origin.
+	pub origin: Option<Origin>,
+	/// Actualy result.
+	pub result: Result<T, Error>,
+}
 
 /// Server key generation artifacts.
 pub struct ServerKeyGenerationArtifacts {
@@ -41,9 +52,9 @@ pub struct ServerKeyRetrievalArtifacts {
 /// Server key (SK) generator.
 pub trait ServerKeyGenerator {
 	/// SK generation future.
-	type GenerateKeyFuture: Future<Output = Result<ServerKeyGenerationArtifacts, Error>> + Send;
+	type GenerateKeyFuture: Future<Output = SessionResult<ServerKeyGenerationArtifacts>> + Send;
 	/// SK restore future.
-	type RestoreKeyFuture: Future<Output = Result<ServerKeyRetrievalArtifacts, Error>> + Send;
+	type RestoreKeyFuture: Future<Output = SessionResult<ServerKeyRetrievalArtifacts>> + Send;
 
 	/// Generate new SK.
 	/// `key_id` is the caller-provided identifier of generated SK.
@@ -66,6 +77,9 @@ pub trait ServerKeyGenerator {
 		author: Option<Requester>,
 	) -> Self::RestoreKeyFuture;
 }
+
+/// Document key store artifacts.
+pub struct DocumentKeyStoreArtifacts;
 
 /// Dcument key generation artifacts.
 pub struct DocumentKeyGenerationArtifacts {
@@ -112,15 +126,15 @@ pub struct DocumentKeyShadowRetrievalArtifacts {
 /// Document key (DK) server.
 pub trait DocumentKeyServer: ServerKeyGenerator {
 	/// DK store future.
-	type StoreDocumentKeyFuture: Future<Output = Result<(), Error>> + Send;
+	type StoreDocumentKeyFuture: Future<Output = SessionResult<DocumentKeyStoreArtifacts>> + Send;
 	/// DK generation future.
-	type GenerateDocumentKeyFuture: Future<Output = Result<DocumentKeyGenerationArtifacts, Error>> + Send;
+	type GenerateDocumentKeyFuture: Future<Output = SessionResult<DocumentKeyGenerationArtifacts>> + Send;
 	/// DK restore future.
-	type RestoreDocumentKeyFuture: Future<Output = Result<DocumentKeyRetrievalArtifacts, Error>> + Send;
+	type RestoreDocumentKeyFuture: Future<Output = SessionResult<DocumentKeyRetrievalArtifacts>> + Send;
 	/// DK common part restore future.
-	type RestoreDocumentKeyCommonFuture: Future<Output = Result<DocumentKeyCommonRetrievalArtifacts, Error>> + Send;
+	type RestoreDocumentKeyCommonFuture: Future<Output = SessionResult<DocumentKeyCommonRetrievalArtifacts>> + Send;
 	/// DK shadow restore future.
-	type RestoreDocumentKeyShadowFuture: Future<Output = Result<DocumentKeyShadowRetrievalArtifacts, Error>> + Send;
+	type RestoreDocumentKeyShadowFuture: Future<Output = SessionResult<DocumentKeyShadowRetrievalArtifacts>> + Send;
 
 	/// Store externally generated DK.
 	/// `key_id` is identifier of previously generated SK.
@@ -131,6 +145,7 @@ pub trait DocumentKeyServer: ServerKeyGenerator {
 	///   `k` is the same scalar used in `common_point` calculation and `y` is previously generated public part of SK.
 	fn store_document_key(
 		&self,
+		origin: Option<Origin>,
 		key_id: ServerKeyId,
 		author: Requester,
 		common_point: Public,
@@ -144,6 +159,7 @@ pub trait DocumentKeyServer: ServerKeyGenerator {
 	/// Result is a DK, encrypted with caller public key.
 	fn generate_document_key(
 		&self,
+		origin: Option<Origin>,
 		key_id: ServerKeyId,
 		author: Requester,
 		threshold: usize,
@@ -155,12 +171,14 @@ pub trait DocumentKeyServer: ServerKeyGenerator {
 	/// Result is a DK, encrypted with caller public key.
 	fn restore_document_key(
 		&self,
+		origin: Option<Origin>,
 		key_id: ServerKeyId,
 		requester: Requester,
 	) -> Self::RestoreDocumentKeyFuture;
 	/// Restore portion of DK that is the same among all key servers.
 	fn restore_document_key_common(
 		&self,
+		origin: Option<Origin>,
 		key_id: ServerKeyId,
 		requester: Requester,
 	) -> Self::RestoreDocumentKeyCommonFuture;
@@ -173,6 +191,7 @@ pub trait DocumentKeyServer: ServerKeyGenerator {
 	/// Result is a DK shadow.
 	fn restore_document_key_shadow(
 		&self,
+		origin: Option<Origin>,
 		key_id: ServerKeyId,
 		requester: Requester,
 	) -> Self::RestoreDocumentKeyShadowFuture;
@@ -195,9 +214,9 @@ pub struct EcdsaSigningArtifacts {
 /// Message signer.
 pub trait MessageSigner: ServerKeyGenerator {
 	/// Schnorr signing future.
-	type SignMessageSchnorrFuture: Future<Output = Result<SchnorrSigningArtifacts, Error>> + Send;
+	type SignMessageSchnorrFuture: Future<Output = SessionResult<SchnorrSigningArtifacts>> + Send;
 	/// ECDSA signing future.
-	type SignMessageECDSAFuture: Future<Output = Result<EcdsaSigningArtifacts, Error>> + Send;
+	type SignMessageECDSAFuture: Future<Output = SessionResult<EcdsaSigningArtifacts>> + Send;
 
 	/// Generate Schnorr signature for message with previously generated SK.
 	/// `key_id` is the caller-provided identifier of generated SK.
@@ -206,6 +225,7 @@ pub trait MessageSigner: ServerKeyGenerator {
 	/// Result is a signed message, encrypted with caller public key.
 	fn sign_message_schnorr(
 		&self,
+		origin: Option<Origin>,
 		key_id: ServerKeyId,
 		requester: Requester,
 		message: H256,
@@ -218,6 +238,7 @@ pub trait MessageSigner: ServerKeyGenerator {
 	/// Result is a signed message, encrypted with caller public key.
 	fn sign_message_ecdsa(
 		&self,
+		origin: Option<Origin>,
 		key_id: ServerKeyId,
 		signature: Requester,
 		message: H256,
@@ -227,7 +248,7 @@ pub trait MessageSigner: ServerKeyGenerator {
 /// Administrative sessions server.
 pub trait AdminSessionsServer {
 	/// Change servers set future.
-	type ChangeServersSetFuture: Future<Output = Result<(), Error>> + Send;
+	type ChangeServersSetFuture: Future<Output = SessionResult<()>> + Send;
 
 	/// Change servers set so that nodes in new_servers_set became owners of shares for all keys.
 	/// And old nodes (i.e. cluster nodes except new_servers_set) have clear databases.
@@ -235,6 +256,7 @@ pub trait AdminSessionsServer {
 	/// must be followed with cluster nodes change (either via contract, or config files).
 	fn change_servers_set(
 		&self,
+		origin: Option<Origin>,
 		old_set_signature: Signature,
 		new_set_signature: Signature,
 		new_servers_set: BTreeSet<KeyServerPublic>,
@@ -243,4 +265,22 @@ pub trait AdminSessionsServer {
 
 /// Key server.
 pub trait KeyServer: AdminSessionsServer + DocumentKeyServer + MessageSigner + Send + Sync + 'static {
+}
+
+impl<T> SessionResult<T> {
+	/// Result::map().
+	pub fn map<U>(self, f: impl Fn(T) -> U) -> Result<U, Error> {
+		self.result.map(f)
+	}
+
+	/// Result::map_err().
+	pub fn map_err<E>(self, f: impl Fn(Error) -> E) -> Result<T, E> {
+		self.result.map_err(f)
+	}
+}
+
+impl<T> Into<Result<T, Error>> for SessionResult<T> {
+	fn into(self: SessionResult<T>) -> Result<T, Error> {
+		self.result
+	}
 }
