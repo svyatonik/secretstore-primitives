@@ -20,9 +20,9 @@ use parity_crypto::publickey::{Public, Signature};
 use crate::{
 	ServerKeyId, KeyServerPublic,
 	key_server::{
-		SessionResult, ServerKeyGenerationArtifacts, ServerKeyRetrievalArtifacts,
-		DocumentKeyStoreArtifacts, DocumentKeyCommonRetrievalArtifacts,
-		DocumentKeyShadowRetrievalArtifacts,
+		ServerKeyGenerationResult, ServerKeyRetrievalResult,
+		DocumentKeyStoreResult, DocumentKeyCommonRetrievalResult,
+		DocumentKeyShadowRetrievalResult,
 	},
 	requester::Requester,
 };
@@ -40,16 +40,16 @@ pub trait ServiceTasksListenerRegistrar: Send + Sync {
 /// node (even if they were started by another node).
 pub trait ServiceTasksListener: Send + Sync {
 	/// Called when server key generation session is completed.
-	fn server_key_generated(&self, _: &SessionResult<ServerKeyGenerationArtifacts>) {}
+	fn server_key_generated(&self, _: ServerKeyGenerationResult) {}
 	/// Called when server key retrieval session is completed.
-	fn server_key_retrieved(&self, _: &SessionResult<ServerKeyRetrievalArtifacts>) {}
+	fn server_key_retrieved(&self, _: ServerKeyRetrievalResult) {}
 
 	/// Called when document key store (aka encryption) session is completed.
-	fn document_key_stored(&self, _: &SessionResult<DocumentKeyStoreArtifacts>) {}
+	fn document_key_stored(&self, _: DocumentKeyStoreResult) {}
 	/// Called when common part of document key is retrieved.
-	fn document_key_common_retrieved(&self, _: &SessionResult<DocumentKeyCommonRetrievalArtifacts>) {}
+	fn document_key_common_retrieved(&self, _: DocumentKeyCommonRetrievalResult) {}
 	/// Called when personal part of document key is retrieved.
-	fn document_key_shadow_retrieved(&self, _: &SessionResult<DocumentKeyShadowRetrievalArtifacts>) {}
+	fn document_key_shadow_retrieved(&self, _: DocumentKeyShadowRetrievalResult) {}
 }
 
 /// Service contract task.
