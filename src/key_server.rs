@@ -28,20 +28,41 @@ use crate::{
 pub type Origin = H160;
 
 /// Session result.
-pub struct SessionResult<T> {
+pub struct SessionResult<P, R> {
 	/// Session origin.
 	pub origin: Option<Origin>,
+	/// Session parameters.
+	pub params: P,
 	/// Actualy result.
-	pub result: Result<T, Error>,
+	pub result: Result<R, Error>,
+}
+
+/// Essential server key generation params.
+#[derive(Clone)]
+pub struct ServerKeyGenerationParams {
+	/// Key id.
+	pub key_id: ServerKeyId,
 }
 
 /// Server key generation artifacts.
+#[derive(Clone)]
 pub struct ServerKeyGenerationArtifacts {
 	/// Public portion of generated server key.
 	pub key: Public,
 }
 
+/// Result of server key generation session.
+pub type ServerKeyGenerationResult = SessionResult<ServerKeyGenerationParams, ServerKeyGenerationArtifacts>;
+
+/// Essential server key retrieval params.
+#[derive(Clone)]
+pub struct ServerKeyRetrievalParams {
+	/// Key id.
+	pub key_id: ServerKeyId,
+}
+
 /// Server key retrieval artifacts.
+#[derive(Clone)]
 pub struct ServerKeyRetrievalArtifacts {
 	/// Public portion of retrieved server key.
 	pub key: Public,
@@ -49,12 +70,15 @@ pub struct ServerKeyRetrievalArtifacts {
 	pub threshold: usize,
 }
 
+/// Result of server key retrieval session.
+pub type ServerKeyRetrievalResult = SessionResult<ServerKeyRetrievalParams, ServerKeyRetrievalArtifacts>;
+
 /// Server key (SK) generator.
 pub trait ServerKeyGenerator {
 	/// SK generation future.
-	type GenerateKeyFuture: Future<Output = SessionResult<ServerKeyGenerationArtifacts>> + Send;
+	type GenerateKeyFuture: Future<Output = ServerKeyGenerationResult> + Send;
 	/// SK restore future.
-	type RestoreKeyFuture: Future<Output = SessionResult<ServerKeyRetrievalArtifacts>> + Send;
+	type RestoreKeyFuture: Future<Output = ServerKeyRetrievalResult> + Send;
 
 	/// Generate new SK.
 	/// `key_id` is the caller-provided identifier of generated SK.
@@ -63,6 +87,7 @@ pub trait ServerKeyGenerator {
 	/// Result is a public portion of SK.
 	fn generate_key(
 		&self,
+		origin: Option<Origin>,
 		key_id: ServerKeyId,
 		author: Requester,
 		threshold: usize,
@@ -73,30 +98,76 @@ pub trait ServerKeyGenerator {
 	/// If `author` is `None`, then author-check is omitted.
 	fn restore_key_public(
 		&self,
+		origin: Option<Origin>,
 		key_id: ServerKeyId,
 		author: Option<Requester>,
 	) -> Self::RestoreKeyFuture;
 }
 
+/// Essential document key store params.
+#[derive(Clone)]
+pub struct DocumentKeyStoreParams {
+	/// Key id.
+	pub key_id: ServerKeyId,
+}
+
 /// Document key store artifacts.
+#[derive(Clone)]
 pub struct DocumentKeyStoreArtifacts;
 
+/// Result of document key store session.
+pub type DocumentKeyStoreResult = SessionResult<DocumentKeyStoreParams, DocumentKeyStoreArtifacts>;
+
+/// Essential document key generation params.
+#[derive(Clone)]
+pub struct DocumentKeyGenerationParams {
+	/// Key id.
+	pub key_id: ServerKeyId,
+}
+
 /// Dcument key generation artifacts.
+#[derive(Clone)]
 pub struct DocumentKeyGenerationArtifacts {
 	/// Generated document key. UNENCRYPTED.
 	pub document_key: Public,
 }
 
+/// Result of document key generation session.
+pub type DocumentKeyGenerationResult = SessionResult<DocumentKeyGenerationParams, DocumentKeyGenerationArtifacts>;
+
+/// Essential document key retrieval params.
+#[derive(Clone)]
+pub struct DocumentKeyRetrievalParams {
+	/// Key id.
+	pub key_id: ServerKeyId,
+	/// Key requester.
+	pub requester: Requester,
+}
+
 /// Document key retrieval artifacts.
+#[derive(Clone)]
 pub struct DocumentKeyRetrievalArtifacts {
 	/// Restored document key. UNENCRYPTED.
 	pub document_key: Public,
+}
+
+/// Result of document key retrieval session.
+pub type DocumentKeyRetrievalResult = SessionResult<DocumentKeyRetrievalParams, DocumentKeyRetrievalArtifacts>;
+
+/// Essential document key common retrieval params.
+#[derive(Clone)]
+pub struct DocumentKeyCommonRetrievalParams {
+	/// Key id.
+	pub key_id: ServerKeyId,
+	/// Key requester.
+	pub requester: Requester,
 }
 
 /// Document key common retrieval artifacts.
 ///
 /// This data isn't enough to recover document key and could only be used for
 /// establishing consensus over `common_point` and `threshold`.
+#[derive(Clone)]
 pub struct DocumentKeyCommonRetrievalArtifacts {
 	/// The common point of portion of encrypted document keys. Common point is
 	/// shared among all key servers that aware of the given document key.
@@ -105,10 +176,26 @@ pub struct DocumentKeyCommonRetrievalArtifacts {
 	pub threshold: usize,
 }
 
+/// Result of document key common retrieval session.
+pub type DocumentKeyCommonRetrievalResult = SessionResult<
+	DocumentKeyCommonRetrievalParams,
+	DocumentKeyCommonRetrievalArtifacts,
+>;
+
+/// Essential document key shadow retrieval params.
+#[derive(Clone)]
+pub struct DocumentKeyShadowRetrievalParams {
+	/// Key id.
+	pub key_id: ServerKeyId,
+	/// Key requester.
+	pub requester: Requester,
+}
+
 /// Document key shadow retrieval artifacts.
 ///
 /// The data is enough to decrypt document key by the owner of corresponding
 /// requester key.
+#[derive(Clone)]
 pub struct DocumentKeyShadowRetrievalArtifacts {
 	/// The common point of portion of encrypted document keys. Common point is
 	/// shared among all key servers that aware of the given document key.
@@ -123,18 +210,24 @@ pub struct DocumentKeyShadowRetrievalArtifacts {
 	pub participants_coefficients: BTreeMap<KeyServerId, Vec<u8>>,
 }
 
+/// Result of document key shadow retrieval session.
+pub type DocumentKeyShadowRetrievalResult = SessionResult<
+	DocumentKeyShadowRetrievalParams,
+	DocumentKeyShadowRetrievalArtifacts,
+>;
+
 /// Document key (DK) server.
 pub trait DocumentKeyServer: ServerKeyGenerator {
 	/// DK store future.
-	type StoreDocumentKeyFuture: Future<Output = SessionResult<DocumentKeyStoreArtifacts>> + Send;
+	type StoreDocumentKeyFuture: Future<Output = DocumentKeyStoreResult> + Send;
 	/// DK generation future.
-	type GenerateDocumentKeyFuture: Future<Output = SessionResult<DocumentKeyGenerationArtifacts>> + Send;
+	type GenerateDocumentKeyFuture: Future<Output = DocumentKeyGenerationResult> + Send;
 	/// DK restore future.
-	type RestoreDocumentKeyFuture: Future<Output = SessionResult<DocumentKeyRetrievalArtifacts>> + Send;
+	type RestoreDocumentKeyFuture: Future<Output = DocumentKeyRetrievalResult> + Send;
 	/// DK common part restore future.
-	type RestoreDocumentKeyCommonFuture: Future<Output = SessionResult<DocumentKeyCommonRetrievalArtifacts>> + Send;
+	type RestoreDocumentKeyCommonFuture: Future<Output = DocumentKeyCommonRetrievalResult> + Send;
 	/// DK shadow restore future.
-	type RestoreDocumentKeyShadowFuture: Future<Output = SessionResult<DocumentKeyShadowRetrievalArtifacts>> + Send;
+	type RestoreDocumentKeyShadowFuture: Future<Output = DocumentKeyShadowRetrievalResult> + Send;
 
 	/// Store externally generated DK.
 	/// `key_id` is identifier of previously generated SK.
@@ -197,7 +290,17 @@ pub trait DocumentKeyServer: ServerKeyGenerator {
 	) -> Self::RestoreDocumentKeyShadowFuture;
 }
 
+/// Essential Schnorr signing params.
+#[derive(Clone)]
+pub struct SchnorrSigningParams {
+	/// Key id.
+	pub key_id: ServerKeyId,
+	/// Key requester.
+	pub requester: Requester,
+}
+
 /// Schnorr signing artifacts.
+#[derive(Clone)]
 pub struct SchnorrSigningArtifacts {
 	/// C portion of Schnorr signature.
 	pub signature_c: H256,
@@ -205,18 +308,34 @@ pub struct SchnorrSigningArtifacts {
 	pub signature_s: H256,
 }
 
+/// Result of Schnorr signing session.
+pub type SchnorrSigningResult = SessionResult<SchnorrSigningParams, SchnorrSigningArtifacts>;
+
+/// Essential ECDSA signing params.
+#[derive(Clone)]
+pub struct EcdsaSigningParams {
+	/// Key id.
+	pub key_id: ServerKeyId,
+	/// Key requester.
+	pub requester: Requester,
+}
+
 /// ECDSA signing artifacts.
+#[derive(Clone)]
 pub struct EcdsaSigningArtifacts {
 	/// ECDSA signature.
 	pub signature: Signature,
 }
 
+/// Result of ECDSA signing session.
+pub type EcdsaSigningResult = SessionResult<EcdsaSigningParams, EcdsaSigningArtifacts>;
+
 /// Message signer.
 pub trait MessageSigner: ServerKeyGenerator {
 	/// Schnorr signing future.
-	type SignMessageSchnorrFuture: Future<Output = SessionResult<SchnorrSigningArtifacts>> + Send;
+	type SignMessageSchnorrFuture: Future<Output = SchnorrSigningResult> + Send;
 	/// ECDSA signing future.
-	type SignMessageECDSAFuture: Future<Output = SessionResult<EcdsaSigningArtifacts>> + Send;
+	type SignMessageECDSAFuture: Future<Output = EcdsaSigningResult> + Send;
 
 	/// Generate Schnorr signature for message with previously generated SK.
 	/// `key_id` is the caller-provided identifier of generated SK.
@@ -248,7 +367,7 @@ pub trait MessageSigner: ServerKeyGenerator {
 /// Administrative sessions server.
 pub trait AdminSessionsServer {
 	/// Change servers set future.
-	type ChangeServersSetFuture: Future<Output = SessionResult<()>> + Send;
+	type ChangeServersSetFuture: Future<Output = SessionResult<(), ()>> + Send;
 
 	/// Change servers set so that nodes in new_servers_set became owners of shares for all keys.
 	/// And old nodes (i.e. cluster nodes except new_servers_set) have clear databases.
@@ -267,20 +386,20 @@ pub trait AdminSessionsServer {
 pub trait KeyServer: AdminSessionsServer + DocumentKeyServer + MessageSigner + Send + Sync + 'static {
 }
 
-impl<T> SessionResult<T> {
+impl<P, R> SessionResult<P, R> {
 	/// Result::map().
-	pub fn map<U>(self, f: impl Fn(T) -> U) -> Result<U, Error> {
+	pub fn map<U>(self, f: impl Fn(R) -> U) -> Result<U, Error> {
 		self.result.map(f)
 	}
 
 	/// Result::map_err().
-	pub fn map_err<E>(self, f: impl Fn(Error) -> E) -> Result<T, E> {
+	pub fn map_err<E>(self, f: impl Fn(Error) -> E) -> Result<R, E> {
 		self.result.map_err(f)
 	}
 }
 
-impl<T> Into<Result<T, Error>> for SessionResult<T> {
-	fn into(self: SessionResult<T>) -> Result<T, Error> {
+impl<P, R> Into<Result<R, Error>> for SessionResult<P, R> {
+	fn into(self: SessionResult<P, R>) -> Result<R, Error> {
 		self.result
 	}
 }
