@@ -34,6 +34,7 @@ pub mod acl_storage;
 pub mod error;
 pub mod key_server;
 pub mod key_server_set;
+pub mod key_storage;
 pub mod requester;
 pub mod serialization;
 pub mod service;
