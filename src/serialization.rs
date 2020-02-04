@@ -137,7 +137,7 @@ impl_to_hex!(Public);
 
 impl_bytes!(SerializableBytes, Bytes, true, (Default));
 impl_bytes!(SerializableH256, H256, false, (Default, PartialOrd, Ord));
-impl_bytes!(SerializableH160, H160, false, (Default));
+impl_bytes!(SerializableH160, H160, false, (Default, PartialOrd, Ord));
 impl_bytes!(SerializablePublic, Public, false, (Default, PartialOrd, Ord));
 impl_bytes!(SerializableSecret, Secret, false, ());
 impl_bytes!(SerializableSignature, Signature, false, ());
