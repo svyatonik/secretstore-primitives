@@ -14,7 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Secret Store.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use parking_lot::RwLock;
 use ethereum_types::H256;
 use parity_crypto::publickey::{Address, Public, Secret};
 use crate::{error::Error, KeyServerId, ServerKeyId};
@@ -64,4 +65,44 @@ pub trait KeyStorage: Send + Sync {
 	fn contains(&self, key_id: &ServerKeyId) -> bool;
 	/// Iterate through storage.
 	fn iter<'a>(&'a self) -> Box<dyn Iterator<Item=(ServerKeyId, KeyShare)> + 'a>;
+}
+
+/// In-memory key storage implementation.
+#[derive(Debug, Default)]
+pub struct InMemoryKeyStorage {
+	keys: RwLock<HashMap<ServerKeyId, KeyShare>>,
+}
+
+impl KeyStorage for InMemoryKeyStorage {
+	fn insert(&self, key_id: ServerKeyId, key: KeyShare) -> Result<(), Error> {
+		self.keys.write().insert(key_id, key);
+		Ok(())
+	}
+
+	fn update(&self, key_id: ServerKeyId, key: KeyShare) -> Result<(), Error> {
+		self.keys.write().insert(key_id, key);
+		Ok(())
+	}
+
+	fn get(&self, key_id: &ServerKeyId) -> Result<Option<KeyShare>, Error> {
+		Ok(self.keys.read().get(key_id).cloned())
+	}
+
+	fn remove(&self, key_id: &ServerKeyId) -> Result<(), Error> {
+		self.keys.write().remove(key_id);
+		Ok(())
+	}
+
+	fn clear(&self) -> Result<(), Error> {
+		self.keys.write().clear();
+		Ok(())
+	}
+
+	fn contains(&self, key_id: &ServerKeyId) -> bool {
+		self.keys.read().contains_key(key_id)
+	}
+
+	fn iter<'a>(&'a self) -> Box<dyn Iterator<Item=(ServerKeyId, KeyShare)> + 'a> {
+		Box::new(self.keys.read().clone().into_iter())
+	}
 }
