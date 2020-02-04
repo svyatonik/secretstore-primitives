@@ -21,7 +21,7 @@ use crate::{error::Error, KeyServerId, ServerKeyId};
 
 /// Encrypted key share, stored by key storage on the single key server.
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct DocumentKeyShare {
+pub struct KeyShare {
 	/// Author of the entry.
 	pub author: Address,
 	/// Decryption threshold (at least threshold + 1 nodes are required to decrypt data).
@@ -33,12 +33,12 @@ pub struct DocumentKeyShare {
 	/// Encrypted point.
 	pub encrypted_point: Option<Public>,
 	/// Key share versions.
-	pub versions: Vec<DocumentKeyShareVersion>,
+	pub versions: Vec<KeyShareVersion>,
 }
 
-/// Versioned portion of document key share.
+/// Versioned portion of key share.
 #[derive(Debug, Clone, PartialEq)]
-pub struct DocumentKeyShareVersion {
+pub struct KeyShareVersion {
 	/// Version hash (Keccak(time + id_numbers)).
 	pub hash: H256,
 	/// Nodes ids numbers.
@@ -50,18 +50,18 @@ pub struct DocumentKeyShareVersion {
 
 /// Secret Store key storage.
 pub trait KeyStorage: Send + Sync {
-	/// Insert new key.
-	fn insert(&self, key_id: ServerKeyId, key: DocumentKeyShare) -> Result<(), Error>;
-	/// Update document encryption key
-	fn update(&self, document: ServerKeyId, key: DocumentKeyShare) -> Result<(), Error>;
-	/// Get document encryption key
-	fn get(&self, document: &ServerKeyId) -> Result<Option<DocumentKeyShare>, Error>;
-	/// Remove document encryption key
-	fn remove(&self, document: &ServerKeyId) -> Result<(), Error>;
-	/// Clears the database
+	/// Insert new key share.
+	fn insert(&self, key_id: ServerKeyId, key: KeyShare) -> Result<(), Error>;
+	/// Update existing key share.
+	fn update(&self, key_id: ServerKeyId, key: KeyShare) -> Result<(), Error>;
+	/// Get existing key share.
+	fn get(&self, key_id: &ServerKeyId) -> Result<Option<KeyShare>, Error>;
+	/// Remove key share.
+	fn remove(&self, key_id: &ServerKeyId) -> Result<(), Error>;
+	/// Clears the database.
 	fn clear(&self) -> Result<(), Error>;
-	/// Check if storage contains document encryption key
-	fn contains(&self, document: &ServerKeyId) -> bool;
-	/// Iterate through storage
-	fn iter<'a>(&'a self) -> Box<dyn Iterator<Item=(ServerKeyId, DocumentKeyShare)> + 'a>;
+	/// Check if storage contains encryption key
+	fn contains(&self, key_id: &ServerKeyId) -> bool;
+	/// Iterate through storage.
+	fn iter<'a>(&'a self) -> Box<dyn Iterator<Item=(ServerKeyId, KeyShare)> + 'a>;
 }
