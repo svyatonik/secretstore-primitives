@@ -46,7 +46,7 @@ pub struct KeyServerSetMigration {
 	pub is_confirmed: bool,
 }
 
-/// Key Server Set
+/// Key Server Set.
 pub trait KeyServerSet: Send + Sync {
 	/// Is this node currently isolated from the set?
 	fn is_isolated(&self) -> bool;
@@ -56,4 +56,43 @@ pub trait KeyServerSet: Send + Sync {
 	fn start_migration(&self, migration_id: MigrationId);
 	/// Confirm migration.
 	fn confirm_migration(&self, migration_id: MigrationId);
+}
+
+/// In-memory key server set implementation.
+#[derive(Default)]
+pub struct InMemoryKeyServerSet {
+	is_isolated: bool,
+	nodes: BTreeMap<KeyServerPublic, SocketAddr>,
+}
+
+impl InMemoryKeyServerSet {
+	/// Create new in-memory key server set.
+	pub fn new(is_isolated: bool, nodes: BTreeMap<KeyServerPublic, SocketAddr>) -> Self {
+		InMemoryKeyServerSet {
+			is_isolated: is_isolated,
+			nodes: nodes,
+		}
+	}
+}
+
+impl KeyServerSet for InMemoryKeyServerSet {
+	fn is_isolated(&self) -> bool {
+		self.is_isolated
+	}
+
+	fn snapshot(&self) -> KeyServerSetSnapshot {
+		KeyServerSetSnapshot {
+			current_set: self.nodes.clone(),
+			new_set: self.nodes.clone(),
+			..Default::default()
+		}
+	}
+
+	fn start_migration(&self, _migration_id: MigrationId) {
+		// nothing to do here
+	}
+
+	fn confirm_migration(&self, _migration_id: MigrationId) {
+		// nothing to do here
+	}
 }
