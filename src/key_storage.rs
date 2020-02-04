@@ -16,6 +16,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use parking_lot::RwLock;
+use tiny_keccak::{Hasher, Keccak};
 use ethereum_types::H256;
 use parity_crypto::publickey::{Address, Public, Secret};
 use crate::{error::Error, KeyServerId, ServerKeyId};
@@ -104,5 +105,49 @@ impl KeyStorage for InMemoryKeyStorage {
 
 	fn iter<'a>(&'a self) -> Box<dyn Iterator<Item=(ServerKeyId, KeyShare)> + 'a> {
 		Box::new(self.keys.read().clone().into_iter())
+	}
+}
+
+impl KeyShare {
+	/// Get last version reference.
+	pub fn last_version(&self) -> Result<&KeyShareVersion, Error> {
+		self.versions
+			.last()
+			.ok_or_else(|| Error::Database("key version is not found".into()))
+	}
+
+	/// Get given version reference.
+	pub fn version(&self, version: &H256) -> Result<&KeyShareVersion, Error> {
+		self.versions
+			.iter()
+			.rev()
+			.find(|v| &v.hash == version)
+			.ok_or_else(|| Error::Database("key version is not found".into()))
+	}
+}
+
+impl KeyShareVersion {
+	/// Create new version.
+	pub fn new(id_numbers: BTreeMap<KeyServerId, Secret>, secret_share: Secret) -> Self {
+		KeyShareVersion {
+			hash: Self::data_hash(id_numbers.iter().map(|(k, v)| (k.as_bytes(), v.as_bytes()))),
+			id_numbers: id_numbers,
+			secret_share: secret_share,
+		}
+	}
+
+	/// Calculate hash of given version data.
+	pub fn data_hash<'a, I>(id_numbers: I) -> H256 where I: Iterator<Item=(&'a [u8], &'a [u8])> {
+		let mut nodes_keccak = Keccak::v256();
+
+		for (node, node_number) in id_numbers {
+			nodes_keccak.update(node);
+			nodes_keccak.update(node_number);
+		}
+
+		let mut nodes_keccak_value = [0u8; 32];
+		nodes_keccak.finalize(&mut nodes_keccak_value);
+
+		nodes_keccak_value.into()
 	}
 }
