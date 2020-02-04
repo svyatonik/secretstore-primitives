@@ -19,7 +19,7 @@ use parking_lot::RwLock;
 use tiny_keccak::{Hasher, Keccak};
 use ethereum_types::H256;
 use parity_crypto::publickey::{Address, Public, Secret};
-use crate::{error::Error, KeyServerId, ServerKeyId};
+use crate::{error::Error, KeyServerPublic, ServerKeyId};
 
 /// Encrypted key share, stored by key storage on the single key server.
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -44,7 +44,7 @@ pub struct KeyShareVersion {
 	/// Version hash (Keccak(time + id_numbers)).
 	pub hash: H256,
 	/// Nodes ids numbers.
-	pub id_numbers: BTreeMap<KeyServerId, Secret>,
+	pub id_numbers: BTreeMap<KeyServerPublic, Secret>,
 	/// Node secret share.
 	pub secret_share: Secret,
 }
@@ -128,7 +128,7 @@ impl KeyShare {
 
 impl KeyShareVersion {
 	/// Create new version.
-	pub fn new(id_numbers: BTreeMap<KeyServerId, Secret>, secret_share: Secret) -> Self {
+	pub fn new(id_numbers: BTreeMap<KeyServerPublic, Secret>, secret_share: Secret) -> Self {
 		KeyShareVersion {
 			hash: Self::data_hash(id_numbers.iter().map(|(k, v)| (k.as_bytes(), v.as_bytes()))),
 			id_numbers: id_numbers,
