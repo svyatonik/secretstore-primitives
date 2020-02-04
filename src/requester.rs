@@ -35,7 +35,7 @@ impl Requester {
 			Requester::Signature(ref signature) => recover(signature, server_key_id)
 				.map_err(|e| Error::Internal(format!("bad signature: {}", e))),
 			Requester::Public(ref public) => Ok(public.clone()),
-			Requester::Address(_) => Err(Error::Internal("cannot recover public from address".into())),
+			Requester::Address(_) => Err(Error::InsufficientRequesterData("cannot recover public from address".into())),
 		}
 	}
 

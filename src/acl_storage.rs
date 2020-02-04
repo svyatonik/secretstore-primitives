@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Secret Store.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::collections::{HashMap, HashSet};
+use parking_lot::RwLock;
 use ethereum_types::Address;
 use crate::{ServerKeyId, error::Error};
 
@@ -25,4 +27,31 @@ pub trait AclStorage: Send + Sync {
 	/// The private data is either private portion of server key, or document
 	/// key associated with this server key.
 	fn check(&self, requester_address: Address, key_id: &ServerKeyId) -> Result<bool, Error>;
+}
+
+/// In-memory ACL storage implementation.
+///
+/// By default everyone has access to all keys.
+#[derive(Default, Debug)]
+pub struct InMemoryPermissiveAclStorage {
+	forbidden: RwLock<HashMap<Address, HashSet<ServerKeyId>>>,
+}
+
+impl InMemoryPermissiveAclStorage {
+	/// Forbid access to given documents.
+	pub fn forbid(&self, requester: Address, document: ServerKeyId) {
+		self.forbidden.write()
+			.entry(requester)
+			.or_insert_with(Default::default)
+			.insert(document);
+	}
+}
+
+impl AclStorage for InMemoryPermissiveAclStorage {
+	fn check(&self, requester: Address, document: &ServerKeyId) -> Result<bool, Error> {
+		Ok(self.forbidden.read()
+			.get(&requester)
+			.map(|docs| !docs.contains(document))
+			.unwrap_or(true))
+	}
 }

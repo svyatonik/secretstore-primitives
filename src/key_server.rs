@@ -16,7 +16,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
-use ethereum_types::{H160, H256};
+use ethereum_types::{Address, H160, H256};
 use parity_crypto::publickey::{Public, Signature};
 use crate::{
 	KeyServerId, KeyServerPublic, ServerKeyId,
@@ -64,6 +64,8 @@ pub struct ServerKeyRetrievalParams {
 /// Server key retrieval artifacts.
 #[derive(Clone)]
 pub struct ServerKeyRetrievalArtifacts {
+	/// Server key author.
+	pub author: Address,
 	/// Public portion of retrieved server key.
 	pub key: Public,
 	/// Threshold that has been used to generate server key.
@@ -302,9 +304,9 @@ pub struct SchnorrSigningParams {
 /// Schnorr signing artifacts.
 #[derive(Clone)]
 pub struct SchnorrSigningArtifacts {
-	/// C portion of Schnorr signature.
+	/// C portion of Schnorr signature. UNENCRYPTED.
 	pub signature_c: H256,
-	/// S portion of Schnorr signature.
+	/// S portion of Schnorr signature. UNENCRYPTED.
 	pub signature_s: H256,
 }
 
@@ -323,7 +325,7 @@ pub struct EcdsaSigningParams {
 /// ECDSA signing artifacts.
 #[derive(Clone)]
 pub struct EcdsaSigningArtifacts {
-	/// ECDSA signature.
+	/// ECDSA signature. UNENCRYPTED.
 	pub signature: Signature,
 }
 
@@ -335,7 +337,7 @@ pub trait MessageSigner: ServerKeyGenerator {
 	/// Schnorr signing future.
 	type SignMessageSchnorrFuture: Future<Output = SchnorrSigningResult> + Send;
 	/// ECDSA signing future.
-	type SignMessageECDSAFuture: Future<Output = EcdsaSigningResult> + Send;
+	type SignMessageEcdsaFuture: Future<Output = EcdsaSigningResult> + Send;
 
 	/// Generate Schnorr signature for message with previously generated SK.
 	/// `key_id` is the caller-provided identifier of generated SK.
@@ -359,9 +361,9 @@ pub trait MessageSigner: ServerKeyGenerator {
 		&self,
 		origin: Option<Origin>,
 		key_id: ServerKeyId,
-		signature: Requester,
+		requester: Requester,
 		message: H256,
-	) -> Self::SignMessageECDSAFuture;
+	) -> Self::SignMessageEcdsaFuture;
 }
 
 /// Administrative sessions server.
