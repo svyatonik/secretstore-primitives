@@ -24,22 +24,22 @@ pub type MigrationId = H256;
 
 /// Key Server Set state.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct KeyServerSetSnapshot {
+pub struct KeyServerSetSnapshot<Address> {
 	/// Current set of key servers.
-	pub current_set: BTreeMap<KeyServerId, SocketAddr>,
+	pub current_set: BTreeMap<KeyServerId, Address>,
 	/// New set of key servers.
-	pub new_set: BTreeMap<KeyServerId, SocketAddr>,
+	pub new_set: BTreeMap<KeyServerId, Address>,
 	/// Current migration data.
-	pub migration: Option<KeyServerSetMigration>,
+	pub migration: Option<KeyServerSetMigration<Address>>,
 }
 
 /// Key server set migration.
 #[derive(Default, Debug, Clone, PartialEq)]
-pub struct KeyServerSetMigration {
+pub struct KeyServerSetMigration<Address> {
 	/// Migration id.
 	pub id: MigrationId,
 	/// Migration set of key servers. It is the new_set at the moment of migration start.
-	pub set: BTreeMap<KeyServerId, SocketAddr>,
+	pub set: BTreeMap<KeyServerId, Address>,
 	/// Master node of the migration process.
 	pub master: KeyServerId,
 	/// Is migration confirmed by this node?
@@ -48,10 +48,13 @@ pub struct KeyServerSetMigration {
 
 /// Key Server Set.
 pub trait KeyServerSet: Send + Sync {
+	/// Type of address we need to know to connect remote key servers.
+	type Address;
+
 	/// Is this node currently isolated from the set?
 	fn is_isolated(&self) -> bool;
 	/// Get server set state.
-	fn snapshot(&self) -> KeyServerSetSnapshot;
+	fn snapshot(&self) -> KeyServerSetSnapshot<Self::Address>;
 	/// Start migration.
 	fn start_migration(&self, migration_id: MigrationId);
 	/// Confirm migration.
@@ -76,15 +79,17 @@ impl InMemoryKeyServerSet {
 }
 
 impl KeyServerSet for InMemoryKeyServerSet {
+	type Address = SocketAddr;
+
 	fn is_isolated(&self) -> bool {
 		self.is_isolated
 	}
 
-	fn snapshot(&self) -> KeyServerSetSnapshot {
+	fn snapshot(&self) -> KeyServerSetSnapshot<Self::Address> {
 		KeyServerSetSnapshot {
 			current_set: self.nodes.clone(),
 			new_set: self.nodes.clone(),
-			..Default::default()
+			migration: None,
 		}
 	}
 

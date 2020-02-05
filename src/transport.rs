@@ -21,20 +21,20 @@ use std::{
 use crate::{error::Error, KeyServerId};
 
 /// Network transport.
-pub trait Transport {
-	/// Type of address we need to connect to remote key servers.
-	type ConnectAddress;
+pub trait NetworkTransport {
+	/// Type of address we need to know to connect remote key servers.
+	type Address;
 
 	/// Set key servers we need to connect to.
-	fn set_key_servers_set(&self, set: BTreeMap<KeyServerId, Self::ConnectAddress>);
+	fn set_key_servers_set(&self, set: BTreeMap<KeyServerId, Self::Address>);
 	/// Are we connected to all required nodes?
 	fn is_fully_connected(&self) -> bool;
 	/// Get connections snapshot.
-	fn snapshot(&self) -> Arc<dyn TransportSnapshot>;
+	fn snapshot(&self) -> Arc<dyn NetworkSnapshot>;
 }
 
 /// Network connections snapshot.
-pub trait TransportSnapshot {
+pub trait NetworkSnapshot {
 	/// Returns IDs of all nodes that were connected when snapshot has been created.
 	fn nodes(&self) -> BTreeSet<KeyServerId>;
 	/// Broadcast message to all other nodes.
