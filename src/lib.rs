@@ -39,6 +39,7 @@ pub mod key_storage;
 pub mod requester;
 pub mod serialization;
 pub mod service;
+pub mod transport;
 
 /// Encrypt given data using Elliptic Curve Integrated Encryption Scheme.
 pub fn ecies_encrypt(
