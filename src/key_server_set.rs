@@ -17,7 +17,7 @@
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use ethereum_types::H256;
-use crate::KeyServerPublic;
+use crate::KeyServerId;
 
 /// Every migration process has its own unique id.
 pub type MigrationId = H256;
@@ -26,9 +26,9 @@ pub type MigrationId = H256;
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct KeyServerSetSnapshot {
 	/// Current set of key servers.
-	pub current_set: BTreeMap<KeyServerPublic, SocketAddr>,
+	pub current_set: BTreeMap<KeyServerId, SocketAddr>,
 	/// New set of key servers.
-	pub new_set: BTreeMap<KeyServerPublic, SocketAddr>,
+	pub new_set: BTreeMap<KeyServerId, SocketAddr>,
 	/// Current migration data.
 	pub migration: Option<KeyServerSetMigration>,
 }
@@ -39,9 +39,9 @@ pub struct KeyServerSetMigration {
 	/// Migration id.
 	pub id: MigrationId,
 	/// Migration set of key servers. It is the new_set at the moment of migration start.
-	pub set: BTreeMap<KeyServerPublic, SocketAddr>,
+	pub set: BTreeMap<KeyServerId, SocketAddr>,
 	/// Master node of the migration process.
-	pub master: KeyServerPublic,
+	pub master: KeyServerId,
 	/// Is migration confirmed by this node?
 	pub is_confirmed: bool,
 }
@@ -62,12 +62,12 @@ pub trait KeyServerSet: Send + Sync {
 #[derive(Default)]
 pub struct InMemoryKeyServerSet {
 	is_isolated: bool,
-	nodes: BTreeMap<KeyServerPublic, SocketAddr>,
+	nodes: BTreeMap<KeyServerId, SocketAddr>,
 }
 
 impl InMemoryKeyServerSet {
 	/// Create new in-memory key server set.
-	pub fn new(is_isolated: bool, nodes: BTreeMap<KeyServerPublic, SocketAddr>) -> Self {
+	pub fn new(is_isolated: bool, nodes: BTreeMap<KeyServerId, SocketAddr>) -> Self {
 		InMemoryKeyServerSet {
 			is_isolated: is_isolated,
 			nodes: nodes,
