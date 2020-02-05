@@ -16,12 +16,24 @@
 
 use std::{
 	collections::{BTreeMap, BTreeSet},
+	pin::Pin,
 	sync::Arc,
 };
+use futures::Stream;
 use crate::{error::Error, KeyServerId};
 
+/// Network event.
+pub enum NetworkEvent {
+	/// We have connected all required nodes.
+	FullyConnected,
+	/// Node has been disconnected.
+	Disconnected(KeyServerId),
+	/// Message has been received from given key server.
+	MessageReceived(KeyServerId, Vec<u8>),
+}
+
 /// Network transport.
-pub trait NetworkTransport {
+pub trait NetworkTransport: Send + Sync {
 	/// Type of address we need to know to connect remote key servers.
 	type Address;
 
@@ -31,10 +43,12 @@ pub trait NetworkTransport {
 	fn is_fully_connected(&self) -> bool;
 	/// Get connections snapshot.
 	fn snapshot(&self) -> Arc<dyn NetworkSnapshot>;
+	/// Get events stream.
+	fn events(&self) -> Pin<Box<dyn Stream<Item = NetworkEvent> + Send>>;
 }
 
 /// Network connections snapshot.
-pub trait NetworkSnapshot {
+pub trait NetworkSnapshot: Send + Sync {
 	/// Returns IDs of all nodes that were connected when snapshot has been created.
 	fn nodes(&self) -> BTreeSet<KeyServerId>;
 	/// Broadcast message to all other nodes.
