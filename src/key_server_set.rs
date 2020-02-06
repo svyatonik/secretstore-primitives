@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Parity Secret Store.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::BTreeMap;
-use std::net::SocketAddr;
+use std::{
+	collections::BTreeMap,
+	fmt::Debug,
+	net::SocketAddr,
+};
 use ethereum_types::H256;
 use crate::KeyServerId;
 
