@@ -49,12 +49,12 @@ pub struct KeyServerSetMigration<Address> {
 /// Key Server Set.
 pub trait KeyServerSet: Send + Sync {
 	/// Type of address we need to know to connect remote key servers.
-	type Address;
+	type NetworkAddress: Send + Sync;
 
 	/// Is this node currently isolated from the set?
 	fn is_isolated(&self) -> bool;
 	/// Get server set state.
-	fn snapshot(&self) -> KeyServerSetSnapshot<Self::Address>;
+	fn snapshot(&self) -> KeyServerSetSnapshot<Self::NetworkAddress>;
 	/// Start migration.
 	fn start_migration(&self, migration_id: MigrationId);
 	/// Confirm migration.
@@ -79,13 +79,13 @@ impl InMemoryKeyServerSet {
 }
 
 impl KeyServerSet for InMemoryKeyServerSet {
-	type Address = SocketAddr;
+	type NetworkAddress = SocketAddr;
 
 	fn is_isolated(&self) -> bool {
 		self.is_isolated
 	}
 
-	fn snapshot(&self) -> KeyServerSetSnapshot<Self::Address> {
+	fn snapshot(&self) -> KeyServerSetSnapshot<Self::NetworkAddress> {
 		KeyServerSetSnapshot {
 			current_set: self.nodes.clone(),
 			new_set: self.nodes.clone(),
