@@ -31,6 +31,7 @@ pub type KeyServerId = Address;
 pub type ServerKeyId = H256;
 
 pub mod acl_storage;
+pub mod connections;
 pub mod error;
 pub mod key_server;
 pub mod key_server_key_pair;
@@ -39,7 +40,6 @@ pub mod key_storage;
 pub mod requester;
 pub mod serialization;
 pub mod service;
-pub mod transport;
 
 /// Encrypt given data using Elliptic Curve Integrated Encryption Scheme.
 pub fn ecies_encrypt(
