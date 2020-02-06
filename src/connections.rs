@@ -20,6 +20,23 @@ use std::{
 };
 use crate::{error::Error, KeyServerId};
 
+/// Message header.
+#[derive(Debug, PartialEq)]
+pub struct MessageHeader {
+	/// Message/Header version.
+	pub version: u64,
+	/// Message kind.
+	pub kind: u64,
+	/// Message payload size (without header).
+	pub size: u16,
+}
+
+/// Message payload.
+pub type MessagePayload = Vec<u8>;
+
+/// Message.
+pub struct Message(pub MessageHeader, pub MessagePayload);
+
 /// Connection to the single node. Provides basic information about connected node and
 /// allows sending messages to this node.
 pub trait Connection: Send + Sync {
@@ -32,7 +49,7 @@ pub trait Connection: Send + Sync {
 	/// Returns 'address' of the node to use in traces.
 	fn node_address(&self) -> String;
 	/// Send message to the connected node.
-	fn send_message(&self, message: Vec<u8>);
+	fn send_message(&self, message: Message);
 }
 
 /// Connections manager. Responsible for keeping us connected to all required nodes.
