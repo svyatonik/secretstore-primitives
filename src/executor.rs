@@ -15,7 +15,7 @@
 // along with Parity Secret Store.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::future::BoxFuture;
-use tokio::runtime::{Handle, Runtime};
+use tokio::runtime::Runtime;
 use crate::error::Error;
 
 /// Futures executor.
@@ -24,13 +24,16 @@ pub trait Executor: Send + Sync + 'static {
 	fn spawn(&self, future: BoxFuture<'static, ()>);
 }
 
+/// Alias or tokio runtime handle.
+pub type TokioHandle = tokio::runtime::Handle;
+
 /// Create new tokio runtime.
 pub fn tokio_runtime() -> Result<Runtime, Error> {
 	Runtime::new().map_err(|err| Error::Internal(format!("{}", err)))
 }
 
-impl Executor for Handle {
+impl Executor for TokioHandle {
 	fn spawn(&self, future: BoxFuture<'static, ()>) {
-		Handle::spawn(self, future);
+		TokioHandle::spawn(self, future);
 	}
 }
