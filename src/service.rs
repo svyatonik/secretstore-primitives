@@ -41,14 +41,7 @@ pub trait ServiceTasksListenerRegistrar: Send + Sync {
 pub trait ServiceTasksListener: Send + Sync {
 	/// Called when server key generation session is completed.
 	fn server_key_generated(&self, _: ServerKeyGenerationResult) {}
-	/// Called when server key retrieval session is completed.
-	fn server_key_retrieved(&self, _: ServerKeyRetrievalResult) {}
-
-	/// Called when document key store (aka encryption) session is completed.
-	fn document_key_stored(&self, _: DocumentKeyStoreResult) {}
-	/// Called when common part of document key is retrieved.
-	fn document_key_common_retrieved(&self, _: DocumentKeyCommonRetrievalResult) {}
-	/// Called when personal part of document key is retrieved.
+	/// Called when document key shadow is retrieved.
 	fn document_key_shadow_retrieved(&self, _: DocumentKeyShadowRetrievalResult) {}
 }
 
