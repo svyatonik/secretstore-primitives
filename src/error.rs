@@ -18,6 +18,7 @@ use std::fmt;
 use std::net;
 use std::io::Error as IoError;
 use serde::{Serialize, Deserialize};
+use crate::KeyServerId;
 
 /// Secret store error.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -25,7 +26,7 @@ pub enum Error {
 	/// Invalid node address has been passed.
 	InvalidNodeAddress,
 	/// Invalid node id has been passed.
-	InvalidNodeId,
+	InvalidNodeId(KeyServerId),
 	/// Session with the given id already exists.
 	DuplicateSessionId,
 	/// No active session with given id.
@@ -113,7 +114,7 @@ impl Error {
 			// fatal errors:
 
 			// config-related errors
-			Error::InvalidNodeAddress | Error::InvalidNodeId |
+			Error::InvalidNodeAddress | Error::InvalidNodeId(_) |
 			// wrong session input params errors
 			Error::NotEnoughNodesForThreshold | Error::ServerKeyAlreadyGenerated | Error::ServerKeyIsNotFound |
 				Error::DocumentKeyAlreadyStored | Error::DocumentKeyIsNotFound | Error::InsufficientRequesterData(_) |
@@ -130,7 +131,7 @@ impl fmt::Display for Error {
 	fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
 		match *self {
 			Error::InvalidNodeAddress => write!(f, "invalid node address has been passed"),
-			Error::InvalidNodeId => write!(f, "invalid node id has been passed"),
+			Error::InvalidNodeId(id) => write!(f, "invalid node id has been passed: {}", id),
 			Error::DuplicateSessionId => write!(f, "session with the same id is already registered"),
 			Error::NoActiveSessionWithId => write!(f, "no active session with given id"),
 			Error::NotEnoughNodesForThreshold => write!(f, "not enough nodes for passed threshold"),

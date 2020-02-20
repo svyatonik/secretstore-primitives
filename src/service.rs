@@ -19,11 +19,7 @@ use ethereum_types::H256;
 use parity_crypto::publickey::{Public, Signature};
 use crate::{
 	ServerKeyId, KeyServerPublic,
-	key_server::{
-		ServerKeyGenerationResult, ServerKeyRetrievalResult,
-		DocumentKeyStoreResult, DocumentKeyCommonRetrievalResult,
-		DocumentKeyShadowRetrievalResult,
-	},
+	key_server::{ServerKeyGenerationResult, DocumentKeyShadowRetrievalResult},
 	requester::Requester,
 };
 
